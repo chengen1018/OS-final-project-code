@@ -1,59 +1,59 @@
-# Q1: FreeRTOS Task Allocation, Initialization, and Ready List Insertion
+# Q1: FreeRTOS 任務分配、初始化與加入就緒列表
 
-## 1. Code Tracing Flow (Function Call Sequence)
+## 1. 代碼追蹤流程（函數調用序列）
 
-Based on the FreeRTOS source code analysis, here is the complete function call sequence for task creation:
+基於 FreeRTOS 源碼分析，以下是任務創建的完整函數調用序列：
 
 ```
-User Application
+使用者應用程式
     │
-    ├─→ xTaskCreate()                          [tasks.c, Line 1718]
+    ├─→ xTaskCreate()                          [tasks.c, 第 1718 行]
          │
-         ├─→ prvCreateTask()                   [tasks.c, Line 1620]
+         ├─→ prvCreateTask()                   [tasks.c, 第 1620 行]
          │    │
-         │    ├─→ pvPortMallocStack()          [Memory allocation for stack]
+         │    ├─→ pvPortMallocStack()          [分配堆疊記憶體]
          │    │
-         │    ├─→ pvPortMalloc()               [Memory allocation for TCB]
+         │    ├─→ pvPortMalloc()               [分配 TCB 記憶體]
          │    │
-         │    └─→ prvInitialiseNewTask()       [tasks.c, Line 1793]
+         │    └─→ prvInitialiseNewTask()       [tasks.c, 第 1793 行]
          │         │
-         │         ├─→ memset()                [Fill stack with known value]
+         │         ├─→ memset()                [用已知值填充堆疊]
          │         │
-         │         ├─→ vListInitialiseItem()   [Initialize StateListItem]
+         │         ├─→ vListInitialiseItem()   [初始化 StateListItem]
          │         │
-         │         ├─→ vListInitialiseItem()   [Initialize EventListItem]
+         │         ├─→ vListInitialiseItem()   [初始化 EventListItem]
          │         │
-         │         ├─→ listSET_LIST_ITEM_OWNER() [Set list item owners]
+         │         ├─→ listSET_LIST_ITEM_OWNER() [設定列表項擁有者]
          │         │
-         │         └─→ pxPortInitialiseStack()  [port.c, Line 202]
-         │              [ARM_CM4F specific stack setup]
+         │         └─→ pxPortInitialiseStack()  [port.c, 第 202 行]
+         │              [ARM_CM4F 特定的堆疊設置]
          │
-         └─→ prvAddNewTaskToReadyList()        [tasks.c, Line 2019]
+         └─→ prvAddNewTaskToReadyList()        [tasks.c, 第 2019 行]
               │
-              ├─→ taskENTER_CRITICAL()         [Disable interrupts]
+              ├─→ taskENTER_CRITICAL()         [禁用中斷]
               │
-              ├─→ prvInitialiseTaskLists()     [First task only]
+              ├─→ prvInitialiseTaskLists()     [僅第一個任務]
               │
-              ├─→ prvAddTaskToReadyList()      [Macro, Line 268]
+              ├─→ prvAddTaskToReadyList()      [巨集，第 268 行]
               │    │
               │    ├─→ taskRECORD_READY_PRIORITY()
               │    │
-              │    └─→ listINSERT_END()        [Insert into ready list]
+              │    └─→ listINSERT_END()        [插入就緒列表]
               │
-              ├─→ taskEXIT_CRITICAL()          [Enable interrupts]
+              ├─→ taskEXIT_CRITICAL()          [啟用中斷]
               │
               └─→ taskYIELD_ANY_CORE_IF_USING_PREEMPTION()
-                   [Trigger context switch if needed]
+                   [必要時觸發情境切換]
 ```
 
 ---
 
-## 2. Key Code Snippets
+## 2. 關鍵代碼片段
 
-### 2.1 Task Creation Entry Point
-**File:** `tasks.c`  
-**Function:** `xTaskCreate()`  
-**Lines:** 1718-1752
+### 2.1 任務創建入口點
+**檔案：** `tasks.c`  
+**函數：** `xTaskCreate()`  
+**行數：** 1718-1752
 
 ```c
 BaseType_t xTaskCreate( TaskFunction_t pxTaskCode,
@@ -66,13 +66,13 @@ BaseType_t xTaskCreate( TaskFunction_t pxTaskCode,
     TCB_t * pxNewTCB;
     BaseType_t xReturn;
 
-    // Step 1: Allocate and initialize the TCB
+    // 步驟 1：分配並初始化 TCB
     pxNewTCB = prvCreateTask( pxTaskCode, pcName, uxStackDepth, 
                              pvParameters, uxPriority, pxCreatedTask );
 
     if( pxNewTCB != NULL )
     {
-        // Step 2: Add the task to the ready list
+        // 步驟 2：將任務加入就緒列表
         prvAddNewTaskToReadyList( pxNewTCB );
         xReturn = pdPASS;
     }
@@ -85,10 +85,10 @@ BaseType_t xTaskCreate( TaskFunction_t pxTaskCode,
 }
 ```
 
-### 2.2 Memory Allocation for TCB and Stack
-**File:** `tasks.c`  
-**Function:** `prvCreateTask()`  
-**Lines:** 1620-1715
+### 2.2 TCB 與堆疊的記憶體分配
+**檔案：** `tasks.c`  
+**函數：** `prvCreateTask()`  
+**行數：** 1620-1715
 
 ```c
 static TCB_t * prvCreateTask( TaskFunction_t pxTaskCode,
@@ -100,27 +100,27 @@ static TCB_t * prvCreateTask( TaskFunction_t pxTaskCode,
 {
     TCB_t * pxNewTCB;
     
-    // For ARM Cortex-M4 (stack grows downward, portSTACK_GROWTH < 0)
+    // 針對 ARM Cortex-M4（堆疊向下增長，portSTACK_GROWTH < 0）
     StackType_t * pxStack;
     
-    // Allocate stack memory
+    // 分配堆疊記憶體
     pxStack = pvPortMallocStack( ((size_t) uxStackDepth) * sizeof(StackType_t) );
     
     if( pxStack != NULL )
     {
-        // Allocate TCB memory
+        // 分配 TCB 記憶體
         pxNewTCB = ( TCB_t * ) pvPortMalloc( sizeof( TCB_t ) );
         
         if( pxNewTCB != NULL )
         {
             memset( (void *) pxNewTCB, 0x00, sizeof( TCB_t ) );
-            pxNewTCB->pxStack = pxStack;  // Store stack pointer in TCB
+            pxNewTCB->pxStack = pxStack;  // 在 TCB 中儲存堆疊指標
         }
     }
     
     if( pxNewTCB != NULL )
     {
-        // Initialize the new task
+        // 初始化新任務
         prvInitialiseNewTask( pxTaskCode, pcName, uxStackDepth, pvParameters, 
                              uxPriority, pxCreatedTask, pxNewTCB, NULL );
     }
@@ -129,10 +129,10 @@ static TCB_t * prvCreateTask( TaskFunction_t pxTaskCode,
 }
 ```
 
-### 2.3 Task Control Block Initialization
-**File:** `tasks.c`  
-**Function:** `prvInitialiseNewTask()`  
-**Lines:** 1793-2014
+### 2.3 任務控制塊初始化
+**檔案：** `tasks.c`  
+**函數：** `prvInitialiseNewTask()`  
+**行數：** 1793-2014
 
 ```c
 static void prvInitialiseNewTask( TaskFunction_t pxTaskCode,
@@ -146,43 +146,43 @@ static void prvInitialiseNewTask( TaskFunction_t pxTaskCode,
 {
     StackType_t * pxTopOfStack;
     
-    // Fill stack with known value for debugging (0xa5)
+    // 用已知值填充堆疊以進行除錯（0xa5）
     memset( pxNewTCB->pxStack, (int) tskSTACK_FILL_BYTE, 
             (size_t) uxStackDepth * sizeof(StackType_t) );
     
-    // Calculate top of stack (for downward growing stack)
+    // 計算堆疊頂端（針對向下增長的堆疊）
     pxTopOfStack = &( pxNewTCB->pxStack[ uxStackDepth - 1 ] );
     pxTopOfStack = (StackType_t *) ( ((portPOINTER_SIZE_TYPE) pxTopOfStack) & 
                    (~((portPOINTER_SIZE_TYPE) portBYTE_ALIGNMENT_MASK)) );
     
-    // Store task name
+    // 儲存任務名稱
     for( x = 0; x < configMAX_TASK_NAME_LEN; x++ )
     {
         pxNewTCB->pcTaskName[ x ] = pcName[ x ];
         if( pcName[ x ] == 0x00 ) break;
     }
     
-    // Set priority
+    // 設定優先權
     pxNewTCB->uxPriority = uxPriority;
-    pxNewTCB->uxBasePriority = uxPriority;  // For priority inheritance
+    pxNewTCB->uxBasePriority = uxPriority;  // 用於優先權繼承
     
-    // Initialize list items
+    // 初始化列表項
     vListInitialiseItem( &( pxNewTCB->xStateListItem ) );
     vListInitialiseItem( &( pxNewTCB->xEventListItem ) );
     
-    // Set TCB as owner of list items
+    // 將 TCB 設為列表項的擁有者
     listSET_LIST_ITEM_OWNER( &( pxNewTCB->xStateListItem ), pxNewTCB );
     listSET_LIST_ITEM_VALUE( &( pxNewTCB->xEventListItem ), 
                             (TickType_t) configMAX_PRIORITIES - (TickType_t) uxPriority );
     listSET_LIST_ITEM_OWNER( &( pxNewTCB->xEventListItem ), pxNewTCB );
     
-    // Initialize stack to simulate an interrupt return
+    // 初始化堆疊以模擬中斷返回
     pxNewTCB->pxTopOfStack = pxPortInitialiseStack( pxTopOfStack, pxTaskCode, pvParameters );
     
-    // Set task state
+    // 設定任務狀態
     pxNewTCB->xTaskRunState = taskTASK_NOT_RUNNING;
     
-    // Return task handle
+    // 返回任務控制代碼
     if( pxCreatedTask != NULL )
     {
         *pxCreatedTask = (TaskHandle_t) pxNewTCB;
@@ -190,64 +190,64 @@ static void prvInitialiseNewTask( TaskFunction_t pxTaskCode,
 }
 ```
 
-### 2.4 Stack Initialization (ARM Cortex-M4F Specific)
-**File:** `portable/GCC/ARM_CM4F/port.c`  
-**Function:** `pxPortInitialiseStack()`  
-**Lines:** 202-231
+### 2.4 堆疊初始化（ARM Cortex-M4F 特定）
+**檔案：** `portable/GCC/ARM_CM4F/port.c`  
+**函數：** `pxPortInitialiseStack()`  
+**行數：** 202-231
 
 ```c
 StackType_t * pxPortInitialiseStack( StackType_t * pxTopOfStack,
                                      TaskFunction_t pxCode,
                                      void * pvParameters )
 {
-    // Simulate stack frame as created by context switch interrupt
+    // 模擬由情境切換中斷創建的堆疊框架
     pxTopOfStack--;
     
-    *pxTopOfStack = portINITIAL_XPSR;        // xPSR register (0x01000000)
+    *pxTopOfStack = portINITIAL_XPSR;        // xPSR 暫存器 (0x01000000)
     pxTopOfStack--;
-    *pxTopOfStack = ((StackType_t) pxCode) & portSTART_ADDRESS_MASK;  // PC (task entry point)
+    *pxTopOfStack = ((StackType_t) pxCode) & portSTART_ADDRESS_MASK;  // PC（任務進入點）
     pxTopOfStack--;
-    *pxTopOfStack = (StackType_t) portTASK_RETURN_ADDRESS;  // LR (return address)
+    *pxTopOfStack = (StackType_t) portTASK_RETURN_ADDRESS;  // LR（返回位址）
     
-    pxTopOfStack -= 5;                       // R12, R3, R2, R1 (uninitialized)
-    *pxTopOfStack = (StackType_t) pvParameters;  // R0 (task parameter)
+    pxTopOfStack -= 5;                       // R12, R3, R2, R1（未初始化）
+    *pxTopOfStack = (StackType_t) pvParameters;  // R0（任務參數）
     
     pxTopOfStack--;
-    *pxTopOfStack = portINITIAL_EXC_RETURN;  // Exception return value (0xFFFFFFFD)
+    *pxTopOfStack = portINITIAL_EXC_RETURN;  // 異常返回值 (0xFFFFFFFD)
     
-    pxTopOfStack -= 8;                       // R11-R4 (uninitialized)
+    pxTopOfStack -= 8;                       // R11-R4（未初始化）
     
     return pxTopOfStack;
 }
 ```
 
-### 2.5 Adding Task to Ready List
-**File:** `tasks.c`  
-**Function:** `prvAddNewTaskToReadyList()`  
-**Lines:** 2019-2093
+### 2.5 將任務加入就緒列表
+**檔案：** `tasks.c`  
+**函數：** `prvAddNewTaskToReadyList()`  
+**行數：** 2019-2093
 
 ```c
 static void prvAddNewTaskToReadyList( TCB_t * pxNewTCB )
 {
-    // Enter critical section to protect task lists
+    // 進入臨界區以保護任務列表
     taskENTER_CRITICAL();
     {
         uxCurrentNumberOfTasks++;
         
-        // If this is the first task
+        // 如果這是第一個任務
         if( pxCurrentTCB == NULL )
         {
             pxCurrentTCB = pxNewTCB;
             
             if( uxCurrentNumberOfTasks == 1 )
             {
-                // Initialize all task lists (ready, delayed, suspended)
+                // 初始化所有任務列表（就緒、延遲、暫停）
                 prvInitialiseTaskLists();
             }
         }
         else
         {
-            // If scheduler not running, update current task if higher priority
+            // 如果排程器未運行，在較高優先權時更新當前任務
             if( xSchedulerRunning == pdFALSE )
             {
                 if( pxCurrentTCB->uxPriority <= pxNewTCB->uxPriority )
@@ -260,14 +260,14 @@ static void prvAddNewTaskToReadyList( TCB_t * pxNewTCB )
         uxTaskNumber++;
         pxNewTCB->uxTCBNumber = uxTaskNumber;
         
-        // Add task to the appropriate ready list
+        // 將任務加入適當的就緒列表
         prvAddTaskToReadyList( pxNewTCB );
         
         portSETUP_TCB( pxNewTCB );
     }
     taskEXIT_CRITICAL();
     
-    // If scheduler running and task has higher priority, yield
+    // 如果排程器正在運行且任務優先權較高，則讓出 CPU
     if( xSchedulerRunning != pdFALSE )
     {
         taskYIELD_ANY_CORE_IF_USING_PREEMPTION( pxNewTCB );
@@ -275,10 +275,10 @@ static void prvAddNewTaskToReadyList( TCB_t * pxNewTCB )
 }
 ```
 
-### 2.6 Ready List Insertion Macro
-**File:** `tasks.c`  
-**Macro:** `prvAddTaskToReadyList()`  
-**Line:** 268-274
+### 2.6 就緒列表插入巨集
+**檔案：** `tasks.c`  
+**巨集：** `prvAddTaskToReadyList()`  
+**行數：** 268-274
 
 ```c
 #define prvAddTaskToReadyList( pxTCB )                                                    \
@@ -292,53 +292,53 @@ static void prvAddNewTaskToReadyList( TCB_t * pxNewTCB )
 
 ---
 
-## 3. Explanatory Diagrams
+## 3. 解釋性圖表
 
-### 3.1 Task Control Block (TCB) Structure
+### 3.1 任務控制塊（TCB）結構
 ```
-TCB_t Structure (tasks.c, Line 358-436):
+TCB_t 結構（tasks.c, 第 358-436 行）：
 ┌────────────────────────────────────────────────────┐
-│ pxTopOfStack          → Current stack pointer      │ ← MUST be first member
+│ pxTopOfStack          → 當前堆疊指標               │ ← 必須是第一個成員
 ├────────────────────────────────────────────────────┤
-│ xStateListItem        → Links task in ready/       │
-│                         blocked/suspended lists    │
+│ xStateListItem        → 連結任務至就緒/            │
+│                         阻塞/暫停列表              │
 ├────────────────────────────────────────────────────┤
-│ xEventListItem        → Links task in event lists  │
+│ xEventListItem        → 連結任務至事件列表         │
 ├────────────────────────────────────────────────────┤
-│ uxPriority           → Task priority (0=lowest)    │
+│ uxPriority           → 任務優先權（0=最低）        │
 ├────────────────────────────────────────────────────┤
-│ pxStack              → Pointer to stack base       │
+│ pxStack              → 指向堆疊基底的指標          │
 ├────────────────────────────────────────────────────┤
-│ xTaskRunState        → Running/not running state   │
+│ xTaskRunState        → 運行/未運行狀態             │
 ├────────────────────────────────────────────────────┤
-│ pcTaskName[16]       → Task name string            │
+│ pcTaskName[16]       → 任務名稱字串                │
 ├────────────────────────────────────────────────────┤
-│ pxEndOfStack         → Stack overflow detection    │
+│ pxEndOfStack         → 堆疊溢出檢測                │
 ├────────────────────────────────────────────────────┤
-│ uxBasePriority       → For priority inheritance    │
+│ uxBasePriority       → 用於優先權繼承              │
 ├────────────────────────────────────────────────────┤
-│ uxTCBNumber          → Unique task identifier      │
+│ uxTCBNumber          → 唯一任務識別碼              │
 ├────────────────────────────────────────────────────┤
-│ ... (other optional fields) ...                    │
+│ ...（其他可選欄位）...                             │
 └────────────────────────────────────────────────────┘
 ```
 
-### 3.2 Stack Layout (ARM Cortex-M4F)
+### 3.2 堆疊佈局（ARM Cortex-M4F）
 ```
-Stack Memory Layout After Initialization (Stack grows downward ↓):
+初始化後的堆疊記憶體佈局（堆疊向下增長 ↓）：
 
-High Memory
+高位記憶體
 ┌──────────────────────────────────────┐
 │                                      │
-│         Unused Stack Space           │  ← pxStack (stack base)
+│         未使用的堆疊空間             │  ← pxStack（堆疊基底）
 │                                      │
 ├──────────────────────────────────────┤
-│          0xa5a5a5a5 (fill)           │  Stack filled with 0xa5 for debugging
-│          0xa5a5a5a5 (fill)           │
-│          0xa5a5a5a5 (fill)           │
+│          0xa5a5a5a5 (填充)           │  堆疊填充 0xa5 用於除錯
+│          0xa5a5a5a5 (填充)           │
+│          0xa5a5a5a5 (填充)           │
 ├──────────────────────────────────────┤
-│  R4                                  │  ← Software-saved registers
-│  R5                                  │     (saved/restored by PendSV)
+│  R4                                  │  ← 軟體保存的暫存器
+│  R5                                  │     (由 PendSV 保存/恢復)
 │  R6                                  │
 │  R7                                  │
 │  R8                                  │
@@ -346,197 +346,196 @@ High Memory
 │  R10                                 │
 │  R11                                 │
 ├──────────────────────────────────────┤
-│  EXC_RETURN (0xFFFFFFFD)             │  ← Exception return value
+│  EXC_RETURN (0xFFFFFFFD)             │  ← 異常返回值
 ├──────────────────────────────────────┤
-│  R0 = pvParameters                   │  ← Hardware-saved registers
-│  R1 = uninitialized                  │     (saved/restored by exception)
-│  R2 = uninitialized                  │
-│  R3 = uninitialized                  │
-│  R12 = uninitialized                 │
+│  R0 = pvParameters                   │  ← 硬體保存的暫存器
+│  R1 = 未初始化                       │     (由異常機制保存/恢復)
+│  R2 = 未初始化                       │
+│  R3 = 未初始化                       │
+│  R12 = 未初始化                      │
 ├──────────────────────────────────────┤
-│  LR = portTASK_RETURN_ADDRESS        │  ← Link Register (exit function)
+│  LR = portTASK_RETURN_ADDRESS        │  ← 連結暫存器（退出函數）
 ├──────────────────────────────────────┤
-│  PC = pxTaskCode (task function)     │  ← Program Counter (entry point)
+│  PC = pxTaskCode (任務函數)          │  ← 程式計數器（進入點）
 ├──────────────────────────────────────┤
-│  xPSR = 0x01000000 (T-bit set)       │  ← Program Status Register
-├──────────────────────────────────────┤  ← pxTopOfStack points here
-Low Memory
+│  xPSR = 0x01000000 (T 位元設定)      │  ← 程式狀態暫存器
+├──────────────────────────────────────┤  ← pxTopOfStack 指向這裡
+低位記憶體
 
-Note: This layout simulates the state of registers as if the task
-      was interrupted and is ready to be restored by the scheduler.
+注意：此佈局模擬任務被中斷時的暫存器狀態，
+      準備好由排程器恢復。
 ```
 
-### 3.3 Ready List Structure
+### 3.3 就緒列表結構
 ```
-Ready Task Lists (Priority-based):
+就緒任務列表（基於優先權）：
 
-pxReadyTasksLists[configMAX_PRIORITIES]:
+pxReadyTasksLists[configMAX_PRIORITIES]：
 ┌─────────────────────────────────────────────┐
-│ Priority 0 (Idle): List_t                   │
-│   ├─→ Task A (StateListItem) ←──────┐      │
-│   └─→ Task B (StateListItem)        │      │
+│ 優先權 0（閒置）：List_t                    │
+│   ├─→ 任務 A (StateListItem) ←──────┐      │
+│   └─→ 任務 B (StateListItem)        │      │
 ├─────────────────────────────────────────────┤
-│ Priority 1: List_t                          │
-│   └─→ (empty)                               │
+│ 優先權 1：List_t                            │
+│   └─→（空）                                 │
 ├─────────────────────────────────────────────┤
-│ Priority 2: List_t                          │
-│   └─→ Task C (StateListItem)               │
+│ 優先權 2：List_t                            │
+│   └─→ 任務 C (StateListItem)               │
 ├─────────────────────────────────────────────┤
-│ Priority 3: List_t                          │
-│   ├─→ Task D (StateListItem)               │
-│   └─→ Task E (StateListItem)               │
+│ 優先權 3：List_t                            │
+│   ├─→ 任務 D (StateListItem)               │
+│   └─→ 任務 E (StateListItem)               │
 ├─────────────────────────────────────────────┤
 │  ...                                        │
 ├─────────────────────────────────────────────┤
-│ Priority (configMAX_PRIORITIES-1): List_t  │
-│   └─→ Task F (StateListItem)               │
+│ 優先權 (configMAX_PRIORITIES-1)：List_t    │
+│   └─→ 任務 F (StateListItem)               │
 └─────────────────────────────────────────────┘
 
-Each Task's StateListItem links back to its TCB:
+每個任務的 StateListItem 連結回其 TCB：
 ListItem_t.pvOwner → TCB_t
 
-Insertion: Tasks are inserted at the END of their priority list
-           using listINSERT_END() to implement round-robin scheduling
-           among tasks of equal priority.
+插入：任務插入其優先權列表的末端
+      使用 listINSERT_END() 實現相同優先權任務間的
+      輪轉排程。
 ```
 
-### 3.4 Complete Task Creation Flow Diagram
+### 3.4 完整任務創建流程圖
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│                     User Application                            │
+│                     使用者應用程式                              │
 │                  xTaskCreate(...)                               │
 └──────────────────────┬──────────────────────────────────────────┘
                        ▼
 ┌─────────────────────────────────────────────────────────────────┐
-│              STEP 1: Allocate Memory                            │
+│              步驟 1：分配記憶體                                 │
 │              prvCreateTask()                                    │
 │  ┌────────────────────────────────────────────────────────┐    │
-│  │ 1a. Allocate Stack Memory                              │    │
+│  │ 1a. 分配堆疊記憶體                                     │    │
 │  │     pxStack = pvPortMallocStack(size)                  │    │
 │  │                                                         │    │
-│  │ 1b. Allocate TCB                                       │    │
+│  │ 1b. 分配 TCB                                           │    │
 │  │     pxNewTCB = pvPortMalloc(sizeof(TCB_t))             │    │
 │  │                                                         │    │
-│  │ 1c. Zero-initialize TCB                                │    │
+│  │ 1c. 將 TCB 清零初始化                                  │    │
 │  │     memset(pxNewTCB, 0, sizeof(TCB_t))                 │    │
 │  │                                                         │    │
-│  │ 1d. Link stack to TCB                                  │    │
+│  │ 1d. 連結堆疊至 TCB                                     │    │
 │  │     pxNewTCB->pxStack = pxStack                        │    │
 │  └────────────────────────────────────────────────────────┘    │
 └──────────────────────┬──────────────────────────────────────────┘
                        ▼
 ┌─────────────────────────────────────────────────────────────────┐
-│              STEP 2: Initialize TCB Fields                      │
+│              步驟 2：初始化 TCB 欄位                            │
 │              prvInitialiseNewTask()                             │
 │  ┌────────────────────────────────────────────────────────┐    │
-│  │ 2a. Fill stack with 0xa5 (debugging)                   │    │
+│  │ 2a. 用 0xa5 填充堆疊（除錯用）                         │    │
 │  │                                                         │    │
-│  │ 2b. Calculate stack top                                │    │
+│  │ 2b. 計算堆疊頂端                                       │    │
 │  │     pxTopOfStack = &pxStack[uxStackDepth-1]            │    │
-│  │     (with alignment)                                   │    │
+│  │     （含對齊處理）                                     │    │
 │  │                                                         │    │
-│  │ 2c. Store task name                                    │    │
+│  │ 2c. 儲存任務名稱                                       │    │
 │  │     strcpy(pxNewTCB->pcTaskName, pcName)               │    │
 │  │                                                         │    │
-│  │ 2d. Set priority                                       │    │
+│  │ 2d. 設定優先權                                         │    │
 │  │     pxNewTCB->uxPriority = uxPriority                  │    │
 │  │     pxNewTCB->uxBasePriority = uxPriority              │    │
 │  │                                                         │    │
-│  │ 2e. Initialize list items                              │    │
+│  │ 2e. 初始化列表項                                       │    │
 │  │     vListInitialiseItem(&StateListItem)                │    │
 │  │     vListInitialiseItem(&EventListItem)                │    │
 │  │     listSET_LIST_ITEM_OWNER(..., pxNewTCB)             │    │
 │  │                                                         │    │
-│  │ 2f. Set task run state                                 │    │
+│  │ 2f. 設定任務運行狀態                                   │    │
 │  │     pxNewTCB->xTaskRunState = taskTASK_NOT_RUNNING     │    │
 │  └────────────────────────────────────────────────────────┘    │
 └──────────────────────┬──────────────────────────────────────────┘
                        ▼
 ┌─────────────────────────────────────────────────────────────────┐
-│              STEP 3: Initialize Stack Frame                     │
+│              步驟 3：初始化堆疊框架                             │
 │              pxPortInitialiseStack() [ARM CM4F]                 │
 │  ┌────────────────────────────────────────────────────────┐    │
-│  │ 3a. Push xPSR (0x01000000)                             │    │
-│  │ 3b. Push PC (task entry point)                         │    │
-│  │ 3c. Push LR (return address)                           │    │
-│  │ 3d. Push R0-R3, R12 (R0 = pvParameters)                │    │
-│  │ 3e. Push EXC_RETURN (0xFFFFFFFD)                       │    │
-│  │ 3f. Push R4-R11 (software context)                     │    │
+│  │ 3a. 推入 xPSR (0x01000000)                             │    │
+│  │ 3b. 推入 PC（任務進入點）                              │    │
+│  │ 3c. 推入 LR（返回位址）                                │    │
+│  │ 3d. 推入 R0-R3, R12（R0 = pvParameters）               │    │
+│  │ 3e. 推入 EXC_RETURN (0xFFFFFFFD)                       │    │
+│  │ 3f. 推入 R4-R11（軟體情境）                            │    │
 │  │                                                         │    │
-│  │ Return: pxTopOfStack (updated)                         │    │
-│  │ Store: pxNewTCB->pxTopOfStack = pxTopOfStack           │    │
+│  │ 返回：pxTopOfStack（已更新）                           │    │
+│  │ 儲存：pxNewTCB->pxTopOfStack = pxTopOfStack            │    │
 │  └────────────────────────────────────────────────────────┘    │
 └──────────────────────┬──────────────────────────────────────────┘
                        ▼
 ┌─────────────────────────────────────────────────────────────────┐
-│              STEP 4: Add to Ready List                          │
+│              步驟 4：加入就緒列表                               │
 │              prvAddNewTaskToReadyList()                         │
 │  ┌────────────────────────────────────────────────────────┐    │
-│  │ 4a. Enter Critical Section                             │    │
+│  │ 4a. 進入臨界區                                         │    │
 │  │     taskENTER_CRITICAL()                               │    │
 │  │                                                         │    │
-│  │ 4b. Increment task counter                             │    │
+│  │ 4b. 遞增任務計數器                                     │    │
 │  │     uxCurrentNumberOfTasks++                           │    │
 │  │                                                         │    │
-│  │ 4c. First task initialization                          │    │
+│  │ 4c. 第一個任務的初始化                                 │    │
 │  │     if (pxCurrentTCB == NULL)                          │    │
 │  │         pxCurrentTCB = pxNewTCB                         │    │
-│  │         if (first task) prvInitialiseTaskLists()       │    │
+│  │         if (第一個任務) prvInitialiseTaskLists()       │    │
 │  │                                                         │    │
-│  │ 4d. Update pxCurrentTCB if higher priority             │    │
-│  │     (only if scheduler not running)                    │    │
+│  │ 4d. 若優先權較高則更新 pxCurrentTCB                    │    │
+│  │     （僅在排程器未運行時）                             │    │
 │  │                                                         │    │
-│  │ 4e. Assign TCB number                                  │    │
+│  │ 4e. 分配 TCB 編號                                      │    │
 │  │     pxNewTCB->uxTCBNumber = ++uxTaskNumber             │    │
 │  │                                                         │    │
-│  │ 4f. Insert into ready list (macro expansion):          │    │
+│  │ 4f. 插入就緒列表（巨集展開）：                         │    │
 │  │     taskRECORD_READY_PRIORITY(priority)                │    │
 │  │     listINSERT_END(                                    │    │
 │  │         &pxReadyTasksLists[uxPriority],                │    │
 │  │         &pxNewTCB->xStateListItem)                     │    │
 │  │                                                         │    │
-│  │ 4g. Exit Critical Section                              │    │
+│  │ 4g. 離開臨界區                                         │    │
 │  │     taskEXIT_CRITICAL()                                │    │
 │  │                                                         │    │
-│  │ 4h. Yield if necessary                                 │    │
-│  │     if (scheduler running && higher priority)          │    │
+│  │ 4h. 必要時讓出 CPU                                     │    │
+│  │     if (排程器運行中 && 優先權較高)                    │    │
 │  │         taskYIELD_IF_USING_PREEMPTION()                │    │
 │  └────────────────────────────────────────────────────────┘    │
 └──────────────────────┬──────────────────────────────────────────┘
                        ▼
               ┌────────────────────┐
-              │  Task is now in    │
-              │  Ready State and   │
-              │  Ready for         │
-              │  Scheduling        │
+              │  任務現在處於      │
+              │  就緒狀態並準備    │
+              │  進行排程          │
               └────────────────────┘
 ```
 
 ---
 
-## 4. Summary
+## 4. 總結
 
-### Understanding of FreeRTOS Task Creation Process
+### 對 FreeRTOS 任務創建過程的理解
 
-FreeRTOS implements a systematic and well-structured approach to task creation that ensures tasks are properly initialized and ready for scheduling. The process can be summarized in four main stages:
+FreeRTOS 實現了一個系統化且結構良好的任務創建方法，確保任務被正確初始化並準備好進行排程。整個過程可以總結為四個主要階段：
 
-**Stage 1: Memory Allocation**  
-When `xTaskCreate()` is called, FreeRTOS first allocates memory for both the Task Control Block (TCB) and the task's stack. The order of allocation depends on stack growth direction—for ARM Cortex-M4 (stack grows downward), the stack is allocated first, then the TCB. This prevents the stack from potentially corrupting the TCB structure. The TCB is zero-initialized to ensure all fields start in a known state.
+**階段 1：記憶體分配**  
+當 `xTaskCreate()` 被調用時，FreeRTOS 首先為任務控制塊（TCB）和任務堆疊分配記憶體。分配的順序取決於堆疊增長方向——對於 ARM Cortex-M4（堆疊向下增長），先分配堆疊，然後分配 TCB。這防止了堆疊可能破壞 TCB 結構。TCB 會被清零初始化，以確保所有欄位都從已知狀態開始。
 
-**Stage 2: TCB Initialization**  
-The `prvInitialiseNewTask()` function populates the TCB with essential task information. This includes copying the task name, setting the priority (both current and base priority for priority inheritance), and initializing the two critical list items: `xStateListItem` (which links the task into ready/blocked/suspended lists) and `xEventListItem` (which links the task into synchronization object wait lists). The list items are configured with the TCB as their owner, enabling FreeRTOS to quickly navigate from a list item back to its containing task.
+**階段 2：TCB 初始化**  
+`prvInitialiseNewTask()` 函數填充 TCB 的必要任務資訊。包括複製任務名稱、設定優先權（當前優先權和基礎優先權，用於優先權繼承），以及初始化兩個關鍵的列表項：`xStateListItem`（將任務連結到就緒/阻塞/暫停列表）和 `xEventListItem`（將任務連結到同步物件等待列表）。列表項配置為由 TCB 擁有，使 FreeRTOS 能夠快速從列表項導航回其包含的任務。
 
-**Stage 3: Stack Frame Preparation**  
-The architecture-specific `pxPortInitialiseStack()` function creates an initial stack frame that simulates the state as if the task had been interrupted. For ARM Cortex-M4F, this involves placing the xPSR register (with Thumb bit set), program counter (pointing to the task function), link register, general-purpose registers (with R0 containing the task parameter), and the exception return value on the stack. This pre-initialized stack allows the scheduler to "restore" the task's context during the first context switch, effectively starting task execution at the designated entry point.
+**階段 3：堆疊框架準備**  
+架構特定的 `pxPortInitialiseStack()` 函數創建初始堆疊框架，模擬任務被中斷時的狀態。對於 ARM Cortex-M4F，這涉及在堆疊上放置 xPSR 暫存器（設定 Thumb 位元）、程式計數器（指向任務函數）、連結暫存器、通用暫存器（R0 包含任務參數）以及異常返回值。這個預初始化的堆疊允許排程器在第一次情境切換時「恢復」任務的情境，有效地在指定的進入點開始任務執行。
 
-**Stage 4: Ready List Insertion**  
-Finally, `prvAddNewTaskToReadyList()` adds the task to the appropriate ready list within a critical section to prevent race conditions. FreeRTOS maintains an array of ready lists—one for each priority level. The task's `xStateListItem` is inserted at the end of its priority-specific list using `listINSERT_END()`, which ensures round-robin scheduling among equal-priority tasks. If this is the first task or if the new task has higher priority than the current task (and the scheduler is running), FreeRTOS may trigger a context switch to immediately run the new task.
+**階段 4：就緒列表插入**  
+最後，`prvAddNewTaskToReadyList()` 在臨界區內將任務加入適當的就緒列表，以防止競態條件。FreeRTOS 維護一個就緒列表陣列——每個優先權等級一個。任務的 `xStateListItem` 使用 `listINSERT_END()` 插入其優先權特定列表的末端，這確保了相同優先權任務之間的輪轉排程。如果這是第一個任務，或者新任務的優先權高於當前任務（且排程器正在運行），FreeRTOS 可能會觸發情境切換以立即運行新任務。
 
-**Key Design Insights:**  
-1. The TCB's first field must always be `pxTopOfStack` to enable efficient assembly-level context switching
-2. Critical sections protect all modifications to shared data structures (task lists)
-3. The two-list-item design (state and event) allows tasks to simultaneously exist in ready/blocked lists and wait on synchronization objects
-4. Priority-ordered event lists (with inverted priority values) enable quick selection of highest-priority waiting task
-5. Stack pre-initialization with known patterns (0xa5) facilitates stack overflow detection
+**關鍵設計洞察：**  
+1. TCB 的第一個欄位必須始終是 `pxTopOfStack`，以實現高效的組合語言級情境切換
+2. 臨界區保護所有對共享資料結構（任務列表）的修改
+3. 雙列表項設計（狀態和事件）允許任務同時存在於就緒/阻塞列表和等待同步物件
+4. 優先權排序的事件列表（使用反轉的優先權值）能快速選擇最高優先權的等待任務
+5. 堆疊預先初始化為已知模式（0xa5）有助於堆疊溢出檢測
 
-This architecture demonstrates FreeRTOS's careful balance between portability (generic task management in `tasks.c`) and hardware optimization (architecture-specific stack initialization in port files).
+這個架構展示了 FreeRTOS 在可攜性（`tasks.c` 中的通用任務管理）和硬體最佳化（移植檔案中的架構特定堆疊初始化）之間的仔細平衡。
